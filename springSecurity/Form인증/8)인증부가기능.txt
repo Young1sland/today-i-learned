@@ -1,0 +1,55 @@
+1. WebAuthenticationDetails 
+  - Authentication객체 안에 있으며 remoteAddress,sessionId의 정보를 가지고 있음.
+  - client의 추가정보를 저장하고 싶다면 이 class를 extends하여 사용
+public class WebAuthenticationDetails implements Serializable {
+    private static final long serialVersionUID = 570L;
+    private final String remoteAddress;
+    private final String sessionId;
+    ..
+}
+
+2. AuthenticationDetailsSource
+  - WebAuthenticationDetails를 생성
+      public WebAuthenticationDetails buildDetails(HttpServletRequest context) {}
+
+3. client의 secret_key를 details에 저장해서 인증에 사용하자.
+  login폼에서 히든타입으로 전달
+   <input th:type="hidden" th:value="secret" name="secret_key">
+
+@Component //빈 등록
+public class FormAuthenticationDetailsSource implements AuthenticationDetailsSource<HttpServletRequest, WebAuthenticationDetails> {
+    @Override
+    public WebAuthenticationDetails buildDetails(HttpServletRequest context) {
+        return new FormWebAuthenticationDetails(context);
+    }
+}
+
+public class FormWebAuthenticationDetails extends WebAuthenticationDetails {
+    private String secretKey;
+    //HttpServletRequest에서 client가 전달하는 secret_key를 받아 저장
+    public FormWebAuthenticationDetails(HttpServletRequest request) {
+        super(request);
+        secretKey = request.getParameter("secret_key");
+    }
+    public String getSecretKey(){
+        return secretKey;
+    }
+}
+
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+    //FormAuthenticationDetailsSource를 Bean으로 등록해두면 부모 class은 AuthenticationDetailsSource 주입에 사용되나 보다.
+    private final AuthenticationDetailsSource authenticationDetailsSource;
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .authorizeRequests() //인가 요청
+                ..
+                .formLogin() //폼 로그인 사용
+                .loginPage("/login")
+                .loginProcessingUrl("/login_proc")
+                .authenticationDetailsSource(authenticationDetailsSource) //지정
+                .defaultSuccessUrl("/")
+                .permitAll();
+    }
+}
+

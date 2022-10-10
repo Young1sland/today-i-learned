@@ -1,0 +1,105 @@
+SuccessHandler를 재정의해서 requestCache에 남아있는 이전 요청 URL로 바로 Redirect하자.  
+  
+@Component
+public class CustomAuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+    private RequestCache requestCache = new HttpSessionRequestCache();
+    private RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
+
+    @Override
+    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+        //여기서 super는 사용하지 않는데 상위 클래스에서 이동할 페이지를 결정하는데 선택권이 없어서 간단하게 구현한거다.. super호출안해도 된다?
+        setDefaultTargetUrl("/"); //기본 targetUrl
+
+        //요청 이전 정보 가져옴. 이전 요청 url 또는 다른 자원에 접근했다가 인증예외가 발생한 경우
+        SavedRequest savedRequest = requestCache.getRequest(request, response);
+        if(savedRequest != null){
+            String targetUrl = savedRequest.getRedirectUrl();
+            redirectStrategy.sendRedirect(request, response, targetUrl); //이전 url로 redirect
+        } else {
+            redirectStrategy.sendRedirect(request,response, getDefaultTargetUrl() ); //기본 타겟url로
+        }
+    }
+}   
+
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+        http
+                .authorizeRequests() //인가 요청
+                ..
+                .formLogin() //폼 로그인 사용
+                .loginPage("/login")
+                .loginProcessingUrl("/login_proc")
+                .authenticationDetailsSource(authenticationDetailsSource)
+                .defaultSuccessUrl("/")
+                .successHandler(authenticationSuccessHandler)
+                .permitAll();
+}
+defaultSuccessUrl, successHandler 모두 설정하면 하나만 적용 됨. 아래에 위치한 설정이 반영 됨. (위의 설정을 덮어쓰므로)
+  AbstractAuthenticationFilterConfigurer의 successHandler에 저장 -> 
+    UsernamePasswordAuthenticationFilter의 successHandler에 저장.
+
+
+ 
+
+** RequestCached와 savedRequest **
+FilterSecurityInterceptor
+ - 인가처리를 하는 필터이고 필터 들 중에서 맨 마지막에 위치
+ - 클라이언트의 요청에 대해서 인가 심사를 하게 되는데 심사가 통과되면 요청을 수락하는 것이고 심사가 거부되면 예외를 발생
+   예외는 두개가 있는데 하나는 인증 예외인 AuthenticationException 이고 또 하나는 인가 예외인 AccessDeniedException
+   RequestCache와 savedRequest 는 인증예외와 관련이 있다. 
+   정확히는 인가예외인 AccessDeniedException 와 관련이 있지만 결국 인증 실패 처리에서 진행되기 때문에 인증예외라고 가정하겠다.
+   
+
+ExceptionTranslationFilter
+  - 인증 및 인가 예외를 처리하는 필터이고 위에서 설명한  FilterSecurityInterceptor 필터에서 발생한 예외를 처리
+    즉 AuthenticationException 와 AccessDeniedException  예외를 처리
+    RequestCache 는  AuthenticationException 의 마지막 구현부에서 처리
+
+RequestCache & SavedRequest
+  - RequestCache는 인터페이스이고 기본 구현체는 HttpSessionRequestCache
+    SavedRequest도 인터페이스이고 기본 구현체는 DefaultSavedRequest
+  - HttpSessionRequestCache 는 DefaultSavedRequest 객체를 세션에 저장하는 역할
+    DefaultSavedRequest 는 현재 클라이언트의 요청과정 중에 포함된 쿠키, 헤더, 파라미터 값들을 추출하여 보관하는 역할
+    즉 현재 클라이언트의 요청 과정에서 생성되거나 참조되는 모든 정보는 DefaultSavedRequest 에 저장되고
+    이 객체는 HttpSessionRequestCache 에 의해 세션에 저장 됨.
+
+Case
+#1. 클라이언트가 로그인 과정을 거치지 않고 어떤 자원에 접근할 경우, 그리고 그 자원에 접근하기 위해서는 반드시 인증을 필요로 하는 경우
+  - 이 때 FilterSecurityInterceptor 는 현재 클라이언트가 인증을 받지 않은 상태로 자원에 접근하기 때문에 인가 거부를 하게 되고 
+    예외를 발생. 그리고 그 예외를 ExceptionTranslationFilter 가 처리하게 됨.
+    즉 현재 클라이언트가 접근하고자 했던 자원의 주소 정보, 헤더값, 쿠키 값들을 담고 있는 request 객체를 
+    HttpSessionRequestCache 가 저장하고 있습니다.
+    requestCache.saveRequest(request, response);
+    그리고 DefaultSavedRequest 를 생성하여 클라이언트의 요청객체인  request 를 생성자에 저장하고 있고 
+    DefaultSavedRequest 객체를 세션에 저장하고 있다. 그리고 나서 이 클라이언트는 다시 로그인 페이지로 이동.
+    authenticationEntryPoint.commence(request, response, reason);
+    
+#2. 이 과정 이후에 클라이언트가 위에서 ExceptionTranslationFilter 에 의해 이동된 로그인 페이지에서 인증을 하고 인증에 성공하는 경우
+  - 그렇게 되면 인증 처리를 하는 인증 필터에서는 인증에 성공한 이후 처리를 진행 하는 과정에서 HttpSessionRequestCache 클래스를 
+    참조해서 이미 앞서 세션에 저장되어 있는 DefaultSavedRequest 를 얻어오고 클라이언트가 로그인 과정 이전 즉 처음에 접근하고자 했던
+    자원주소정보를 이 객체로부터 추출하여 그 페이지로 이동시킴.
+    HttpSessionRequestCache cache = new HttpSessionRequestCache();
+    DefaultSavedRequest savedRequest = cache.getRequest(); // 세션에 저장된 DefaultSavedRequest 를 가져옴
+    response.sendRedirct(savedRequest.setRequestURL()); // 이전의 주소정보를 얻어와서 리다이렉트 시킴
+    
+#3. 만약 클라이언트가 인증 과정 없이 어떤 자원에 접근하다가 예외가 발생해서 로그인 하는 경우가 아닌 처음부터 로그인을 시도하다가 인증 예외가 발생할 경우
+  - FilterSecurityInterceptor 및 ExceptionTranslationFilter 와는 아무런 상관이 없이 발생한 예외이기 때문에 
+    HttpSessionRequestCache 및 DefaultSavedRequest 와 연계된 작업들이 일어나지 않음.
+    즉 requestCache.saveRequest(request, response) 는 FilterSecurityInterceptor 에서 발생한 예외를 
+    ExceptionTranslationFilter 에서 받아서 처리를 하는 과정이기 때문에 클라이언트의 인증 이전 과정에서 발생한 정보들을 저장하거나
+    세션에 담는 작업들이 일어나지 않음.
+    그렇기 때문에 이 상태에서 다시 로그인을 하여 인증에 성공하더라도 세션에 DefaultSavedRequest 객체가 존재하지 않기 때문에 
+    인증 실패 이전의 주소로 이동한다던지 하는 작업들이 일어나지 않음.
+
+요약하자면
+ - DefaultSavedRequest 는 클라이언트가 요청과정에서 발생한 여러 정보들을 저장하는 클래스
+   이 객체를 HttpSessionRequestCache 클래스가 세션에 저장하는 역할
+ - 이 작업은 FilterSecurityInterceptor 에서 발생한 예외를 처리하는 ExceptionTranslationFilter 에서 하고 있음.
+   ExceptionTranslationFilter 에서 이동된 인증 페이지에서 다시 인증에 성공한 이후 
+   혹은 필요에 따라 어떤 지점에서 HttpSessionRequestCache 와 DefaultSavedRequest  클래스를 활용해서
+   이전의 요청 정보들을 참조하는 여러 작업들을 할 수 있음.
+   그리고 만약 세션생성정책을 세션을 생성하지 않고 사용하지 않도록 했다면 위의 작업들이 발생하지 않음.   
+ - 참고로 HttpSessionRequestCache 와 DefaultSavedRequest 클래스와 관련해서 RequestCacheAwareFilter 가 있는데
+   이 필터는 세션에 DefaultSavedRequest가 존재한다면  이전 필터로 부터 전달 받은 요청 객체가 아닌
+   DefaultSavedRequest 객체를 담은 wrappedSavedRequest 객체를 생성해서 다음 필터로 전달해 주는 역할을 하고 있음.
+   그러면 이후 다른 필터나 서블릿도 DefaultSavedRequest 를 참조해서 활용 할 수 있음.

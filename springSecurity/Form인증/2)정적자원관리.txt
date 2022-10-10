@@ -1,0 +1,48 @@
+2) 정적 자원 관리 - WebIgnore
+ application.properties
+   spring.datasource.url=jdbc:postgresql://localhost:5432/springboot
+   spring.datasource.username=postgres
+   spring.datasource.password=pass
+   #Entity class 만들면 자동으로 테이블 만듬
+   spring.jpa.hibernate.ddl-auto=create
+   spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+   spring.jpa.properties.hibernate.show_sql=true
+   spring.jpa.properties.hibernate.format_sql=true
+   
+   spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation=true
+   #postgresSQL을 사용하면 발생하는 Caused by: java.sql.SQLFeatureNotSupportedException:
+   # Method org.postgresql.jdbc.PgConnection.createClob() is not yet implemented.라는 
+   # createClob()메서드를 구현하지 않았다는 하이버네이트의 에러로그를 보여주지 않는 설정이다. 
+   
+   spring.thymeleaf.cache=false
+   #서버 재기동 안해도 자동으로
+   spring.devtools.livereload.enabled=true
+   spring.devtools.restart.enabled=true
+   spring.main.allow-bean-definition-overriding=true
+
+//antMatchers.permitAll()는 보안필터를 거치지만 web.ignoring()은 거치지 않음
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+    @Override
+    public void configure(WebSecurity web) throws Exception {
+        web.ignoring().requestMatchers(PathRequest.toStaticResources().atCommonLocations());
+    }
+}
+
+InMemory 유저 생성
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        String password = passwordEncoder().encode("1111");
+        auth.inMemoryAuthentication().withUser("user").password(password).roles("USER");
+        auth.inMemoryAuthentication().withUser("manager").password(password).roles("MANAGER","USER");
+        auth.inMemoryAuthentication().withUser("admin").password(password).roles("ADMIN","MANAGER","USER");
+    }
+    ..   
+}
+
+
+
+

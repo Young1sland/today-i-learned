@@ -1,0 +1,53 @@
+AuthenticationFailureHandler를 재정의하고 Error Message를 변경하고 폼에 띄워보자.
+
+@Component
+public class CustomAuthenticationFailureHandler extends SimpleUrlAuthenticationFailureHandler {
+    @Override
+    public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
+        String errorMessage = "Invalid Username or Password";
+
+        if(exception instanceof BadCredentialsException){
+            errorMessage = "Invalid Username or Password";
+        } else if(exception instanceof InsufficientAuthenticationException){
+            errorMessage = "Invalid Secret Key";
+        }
+
+        setDefaultFailureUrl("/login?error=true&exception="+errorMessage);
+        super.onAuthenticationFailure(request,response,exception); 
+        //super를 불러주고 있다. 부모 클래스인 SimpleUrlAuthenticationFailureHandler 에서
+        //defaultFailureUrl 에 저장된 이동페이지 정보를 가지고 포워딩 혹은 리다이렉트 하는 처리하고 있어 직접구현해줘도 되지만 그냥 씀
+    }
+}
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+    
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .authorizeRequests() //인가 요청
+                .antMatchers("/","/users","user/login/**","/login*").permitAll() //login에 param붙여보내므로 /login*추가
+                ...
+                .and()
+                .formLogin() //폼 로그인 사용
+                .loginPage("/login")
+                .loginProcessingUrl("/login_proc")
+                .authenticationDetailsSource(authenticationDetailsSource)
+                .defaultSuccessUrl("/")
+                .successHandler(authenticationSuccessHandler)
+                .failureHandler(authenticationFailureHandler)
+                .permitAll();
+    }
+}
+
+Controller
+  @GetMapping("/login")
+    public String login(@RequestParam(value = "error", required = false) String error,
+                        @RequestParam(value = "exception", required = false) String exception, Model model){
+        model.addAttribute("error",error);
+        model.addAttribute("exception", exception); //frontend html에서 사용
+        return "user/login/login";
+    }
+
+

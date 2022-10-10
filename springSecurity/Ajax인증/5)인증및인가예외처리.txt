@@ -1,0 +1,68 @@
+인증 없이 접근한 경우와 인증 후 권한 없는 경우에 대한 처리
+
+동작 흐름
+1. 인증 없이 접근한 경우
+   AccessDeniedException 발생 
+   -> ExceptionTranslationFilter //익명 사용자임
+        if(authenticationTrustResolver.isAnonymous(authentication) || ..)
+          sendStartAuthentication()
+            authenticationEntryPoint.commence(); //여기서 처리. implements 만들어주자.
+2. 인증 후 인가예외(접근 권한 없음) 발생한 경우
+  AccessDeniedException 발생 
+   -> ExceptionTranslationFilter
+        accessDeniedHandler.handle() //익명 사용자 아니므로 accessDeniedHandler에서 처리.
+
+** FormLogin, AjaxLogin에서 로그인 후 api호출할 때 어떻게 로그인되어 있는지 판단하는걸까? **
+   - 통신할 때 request 객체의 header에 JSESSIONID를 포함해서 서버로 전송, 브라우저의 역할임
+     세션쿠키라고 부름
+   - 최초 서버에서 발급한 세션쿠키를 response 객체에 담아서 클라이언트로 보내게 되고 클라이언트가 서버로
+     요청할 때는 서버로부터 받은 세션쿠기(JSESSIONID)를 Request객체에 담아서 보내게 됨.
+   - 요즘은 세션을 사용하지않고 토큰 방식의 인증 및 권한을 사용(JWT)하는데 이때는 토큰에 포함된 정보만
+     해석해서 인증 처리함.
+
+
+
+public class AjaxLoginAuthenticationEntryPoint implements AuthenticationEntryPoint {
+    @Override
+    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException, ServletException {
+        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "UnAuthorized");
+    }
+}
+
+public class AjaxAccessDeniedHandler implements AccessDeniedHandler {
+    @Override
+    public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException accessDeniedException) throws IOException, ServletException {
+        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access is denied");
+    }
+}
+
+
+AjaxSecurityConfig
+ @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .antMatcher("/api/**")
+                .authorizeRequests()
+                .antMatchers("/api/messages").hasRole("MANAGER") //api/messages 권한 테스트 위해
+                .anyRequest().authenticated()
+                .and()
+                .addFilterBefore(ajaxLoginProcessingFilter(), UsernamePasswordAuthenticationFilter.class);
+        http
+                .exceptionHandling()
+                .authenticationEntryPoint(new AjaxLoginAuthenticationEntryPoint())
+                .accessDeniedHandler(ajaxAccessDeniedHandler());
+        http.csrf().disable(); //외부 Post 처리를 잠시 꺼둔다.
+
+    }
+
+    @Bean
+    public AccessDeniedHandler ajaxAccessDeniedHandler() {
+        return new AjaxAccessDeniedHandler();
+    }
+** 왜 AjaxLoginAuthenticationEntryPoints는 Bean생성 없이 넣었을까?
+   초기화 시 한번 생성되는 객체이기 때문에 굳이 빈으로 생성할 필요가 없다고.
+   DI 기능을 사용해야 하는 경우 빈으로 생성하지만 빈의 기능을 사용할 필요가 없다면 일반 객체로 생성해도 된다.
+   더 연구가 필요할 듯..
+
+
+

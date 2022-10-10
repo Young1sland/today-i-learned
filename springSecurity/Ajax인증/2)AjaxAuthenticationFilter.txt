@@ -1,0 +1,118 @@
+addFilterBefore : 기존 필터 앞에 배치
+addFilter : 맨마지막에 추가
+addFilterAfter : 기존 필터 뒤에 배치
+addFilterAt : 기존 필터 대치
+
+1. Ajax 인증 처리용 필터 생성 및 추가. 
+public class AjaxLoginProcessingFilter extends AbstractAuthenticationProcessingFilter {
+    private ObjectMapper objectMapper = new ObjectMapper();
+
+    public AjaxLoginProcessingFilter() {
+        super(new AntPathRequestMatcher("/api/login")); //이 url로 왔을 때 필터가 동작, 생성자에서 이렇게 정의 가능하네.
+    }
+
+    @Override
+    public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response) throws AuthenticationException, IOException, ServletException {
+        if(!isAjax(request)){
+            throw new IllegalStateException("Authentication is not supporteed");
+        }
+        AccountDto accountDto = objectMapper.readValue(request.getReader(), AccountDto.class);
+        if(StringUtils.isEmpty(accountDto.getUsername()) || StringUtils.isEmpty(accountDto.getPassword())){
+            throw new IllegalArgumentException("Username or Password is empty");
+        }
+
+        //AjaxAuthentication을 위한 AjaxAuthenticationToken 객체를 생성해준다.
+        AjaxAuthenticationToken ajaxAuthenticationToken = new AjaxAuthenticationToken(accountDto.getUsername(), accountDto.getPassword());
+        return getAuthenticationManager().authenticate(ajaxAuthenticationToken);
+    }
+
+    //Header에 X-Requested-With:XMLHttpRequest인지로 판단
+    private boolean isAjax(HttpServletRequest request){ 
+        if("XMLHttpRequest".equals(request.getHeader("X-Requested-With"))){
+            return true;
+        }
+        return false;
+    }
+}
+
+
+2. AjaxAuthenticationToken 객체 생성. UsernamePasswordAuthenticationToken 내용을 복사해오자.
+public class AjaxAuthenticationToken extends AbstractAuthenticationToken {
+    private static final long serialVersionUID = 570L;
+    private final Object principal;
+    private Object credentials;
+
+    //인증 받기 전 인증 토큰 생성자
+    public AjaxAuthenticationToken(Object principal, Object credentials) {
+        super((Collection)null);
+        this.principal = principal;
+        this.credentials = credentials;
+        this.setAuthenticated(false);
+    }
+
+    //인증 이후 생성되는 토큰 생성자
+
+    public AjaxAuthenticationToken(Object principal, Object credentials, Collection<? extends GrantedAuthority> authorities) {
+        super(authorities);
+        this.principal = principal;
+        this.credentials = credentials;
+        super.setAuthenticated(true);
+    }
+
+    public static AjaxAuthenticationToken unauthenticated(Object principal, Object credentials) {
+        return new AjaxAuthenticationToken(principal, credentials);
+    }
+
+    public static AjaxAuthenticationToken authenticated(Object principal, Object credentials, Collection<? extends GrantedAuthority> authorities) {
+        return new AjaxAuthenticationToken(principal, credentials, authorities);
+    }
+
+    public Object getCredentials() {
+        return this.credentials;
+    }
+
+    public Object getPrincipal() {
+        return this.principal;
+    }
+
+    public void setAuthenticated(boolean isAuthenticated) throws IllegalArgumentException {
+        Assert.isTrue(!isAuthenticated, "Cannot set this token to trusted - use constructor which takes a GrantedAuthority list instead");
+        super.setAuthenticated(false);
+    }
+
+    public void eraseCredentials() {
+        super.eraseCredentials();
+        this.credentials = null;
+    }
+}
+
+3. SecurityConfig
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+    @Bean
+    public AjaxLoginProcessingFilter ajaxLoginProcessingFilter() throws Exception {
+        AjaxLoginProcessingFilter ajaxLoginProcessingFilter = new AjaxLoginProcessingFilter();
+        ajaxLoginProcessingFilter.setAuthenticationManager(authenticationManagerBean());
+        return ajaxLoginProcessingFilter;
+    }
+
+    //해보면 AuthenticationManager를 찾을 수 없다고 나온다. 추가해준다.
+    @Bean
+    public AuthenticationManager authenticationManagerBean() throws Exception {
+        return super.authenticationManagerBean();
+    }
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .authorizeRequests() //인가 요청
+                ...
+                .and()
+                .addFilterBefore(ajaxLoginProcessingFilter(), UsernamePasswordAuthenticationFilter.class);
+                //요청 조건에 따라 필터가 실행되므로 사실 순서는 크게 중요하지 않다..
+        http.csrf().disable(); //외부 Post 처리 위해 잠시 꺼둔다.
+
+    }
+}

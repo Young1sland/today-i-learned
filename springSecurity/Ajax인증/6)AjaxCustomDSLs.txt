@@ -1,0 +1,108 @@
+Ajax 인증 - DSL로 Config 설정하기
+
+DSL(Domain-Specific language) 
+  - 특정한 도메인을 적용하는데 특화된 컴퓨터 언어
+
+Custom DSLs
+  - AbstractHttpConfigurer
+      - 스프링 시큐리티 초기화 설정 클래스
+      - 필터, 핸들러, 메서드, 속성 등을 한곳에 정의해 처리할 수 있는 편리함 제공
+      public void init(H http) throws Exception - 초기화
+      public void configure(H http) - 설정
+  - HttpSecurity의 apply(C configurer) 메서드 사용
+  - https://docs.spring.io/spring-security/reference/servlet/configuration/java.html#jc-custom-dsls
+  
+
+HttpConfigurer를 커스터마이즈해서 Ajax관련 설정을 하나의 클래스로 모아본다.
+
+  AjaxLoginConfigurer
+  //AbstractHttpConfigurer를 상속받아도 되지만 하위 클래스인 AbstractAuthenticationFilterConfigurer를 사용했다..
+  public class AjaxLoginConfigurer<H extends HttpSecurityBuilder<H>> extends
+          AbstractAuthenticationFilterConfigurer<H, AjaxLoginConfigurer<H>, AjaxLoginProcessingFilter>
+  {
+      private AuthenticationSuccessHandler successHandler;
+      private AuthenticationFailureHandler failureHandler;
+      private AuthenticationManager authenticationManager;
+
+      public AjaxLoginConfigurer() {
+          super(new AjaxLoginProcessingFilter(), null);
+      }
+
+      @Override
+      public void init(H http) throws Exception {
+          super.init(http);
+      }
+
+      @Override
+      public void configure(H http) throws Exception {
+          if(authenticationManager == null){
+              //getSharedObject : 공유 객체를 가져오고 저장할 수 있는 저장소 개념..
+              authenticationManager = http.getSharedObject(AuthenticationManager.class);
+          }
+          getAuthenticationFilter().setAuthenticationManager(authenticationManager);
+          getAuthenticationFilter().setAuthenticationSuccessHandler(successHandler);
+          getAuthenticationFilter().setAuthenticationFailureHandler(failureHandler);
+
+          SessionAuthenticationStrategy sessionAuthenticationStrategy = http
+                  .getSharedObject(SessionAuthenticationStrategy.class);
+          if(sessionAuthenticationStrategy!=null){
+              getAuthenticationFilter().setSessionAuthenticationStrategy(sessionAuthenticationStrategy);
+          }
+          RememberMeServices rememberMeServices = http
+                  .getSharedObject(RememberMeServices.class);
+          if(rememberMeServices != null){
+              getAuthenticationFilter().setRememberMeServices(rememberMeServices);
+          }
+          http.setSharedObject(AjaxLoginProcessingFilter.class, getAuthenticationFilter());
+          http.addFilterBefore(getAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+
+      }
+
+      public AjaxLoginConfigurer<H> successHandlerAjax(AuthenticationSuccessHandler successHandler){
+          this.successHandler = successHandler;
+          return this;
+      }
+
+      public AjaxLoginConfigurer<H> failureHandlerAjax(AuthenticationFailureHandler failureHandler){
+          this.failureHandler = failureHandler;
+          return this;
+      }
+      public AjaxLoginConfigurer<H> setAuthenticationManager(AuthenticationManager authenticationManager){
+          this.authenticationManager = authenticationManager;
+          return this;
+      }
+
+      @Override
+      protected RequestMatcher createLoginProcessingUrlMatcher(String loginProcessingUrl) {
+          return new AntPathRequestMatcher(loginProcessingUrl, "POST");
+      }
+  }
+
+  AjaxSecurityConfig
+  @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .antMatcher("/api/**")
+                .authorizeRequests()
+                .antMatchers("/api/messages").hasRole("MANAGER")
+                .anyRequest().authenticated()
+                .and()
+                .exceptionHandling()
+                .authenticationEntryPoint(new AjaxLoginAuthenticationEntryPoint())
+                .accessDeniedHandler(ajaxAccessDeniedHandler());
+        // .addFilterBefore(ajaxLoginProcessingFilter(), UsernamePasswordAuthenticationFilter.class);
+        //기존 ajaxLoginProcessingFilter는 설정되어 있으므로 주석처리
+        http.csrf().disable(); 
+
+        customConfigurerAjax(http);
+    }
+
+    private void customConfigurerAjax(HttpSecurity http) throws Exception{
+        http.apply(new AjaxLoginConfigurer<>())
+                .successHandlerAjax(ajaxAuthenticationSuccessHandler())
+                .failureHandlerAjax(ajaxAuthenticationFailureHandler())
+                .setAuthenticationManager(authenticationManagerBean())
+                .loginProcessingUrl("/api/login");
+    }
+
+

@@ -1,0 +1,64 @@
+1. failureHandler
+public class AjaxAuthenticationFailureHandler implements AuthenticationFailureHandler {
+    private ObjectMapper objectMapper = new ObjectMapper();
+    @Override
+    public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
+        String errMsg = "Invalid Username or Password";
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+
+        if(exception instanceof BadCredentialsException){
+            errMsg = "Invalid Username or Password";
+        } else if(exception instanceof DisabledException){
+            errMsg = "Invalid Secret Key";
+        } else if(exception instanceof CredentialsExpiredException){
+            errMsg = "Expired password";
+        }
+        objectMapper.writeValue(response.getWriter(), errMsg);
+    }
+}
+
+2. successHandler
+public class AjaxAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
+    private ObjectMapper objectMapper = new ObjectMapper();
+
+    @Override
+    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+        Account account = (Account) authentication.getPrincipal();
+        response.setStatus(HttpStatus.OK.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        objectMapper.writeValue(response.getWriter(), account);
+    }
+}
+
+
+3. AjaxSecurityConfig
+  @Bean
+    public AuthenticationSuccessHandler ajaxAuthenticationSuccessHandler(){
+        return new AjaxAuthenticationSuccessHandler();
+    }
+
+    @Bean
+    public AuthenticationFailureHandler ajaxAuthenticationFailureHandler(){
+        return new AjaxAuthenticationFailureHandler();
+    }
+  
+    @Bean
+    public AjaxLoginProcessingFilter ajaxLoginProcessingFilter() throws Exception {
+        AjaxLoginProcessingFilter ajaxLoginProcessingFilter = new AjaxLoginProcessingFilter();
+        ajaxLoginProcessingFilter.setAuthenticationManager(authenticationManagerBean());
+        ajaxLoginProcessingFilter.setAuthenticationSuccessHandler(ajaxAuthenticationSuccessHandler());
+        ajaxLoginProcessingFilter.setAuthenticationFailureHandler(ajaxAuthenticationFailureHandler());
+        return ajaxLoginProcessingFilter;
+    }
+
+
+***  Autowired로 bean 주입할 때, 생성자 주입할 때 차이는 뭘까?? ***
+  생성자 주입하니까 AuthenticationSuccessHandler bean이 2개라고 에러가 난다.(ajax, custom)
+  근데 Autowired로 바꾸니까 괜찮다. TODO 추후 조사.
+
+     @Autowired
+    private AuthenticationSuccessHandler customAuthenticationSuccessHandler;
+
+    @Autowired
+    private AuthenticationFailureHandler customAuthenticationFailureHandler;

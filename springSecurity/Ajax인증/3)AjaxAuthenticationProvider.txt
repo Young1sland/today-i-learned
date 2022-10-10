@@ -1,0 +1,85 @@
+1. Ajax 처리를 위한 SecurityConfig를 따로 만들자.
+@Configuration
+@Order(0) //SecuiryConfig가 2개 이상이면 순서 꼭 정해줘야 함. 숫자 작을수록 높음
+public class AjaxSecurityConfig extends WebSecurityConfigurerAdapter {
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        auth.authenticationProvider(ajaxAuthenticationProvider());
+    }
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .antMatcher("/api/**")
+                .authorizeRequests()
+                .anyRequest().authenticated()
+                .and()
+                .addFilterBefore(ajaxLoginProcessingFilter(), UsernamePasswordAuthenticationFilter.class);
+        http.csrf().disable(); //외부 Post 처리를 잠시 꺼둔다.
+    }
+    @Bean
+    public AuthenticationProvider ajaxAuthenticationProvider(){
+        return new AjaxAuthenticationProvider();
+    }
+    @Bean
+    public AjaxLoginProcessingFilter ajaxLoginProcessingFilter() throws Exception {
+        AjaxLoginProcessingFilter ajaxLoginProcessingFilter = new AjaxLoginProcessingFilter();
+        ajaxLoginProcessingFilter.setAuthenticationManager(authenticationManagerBean());
+        return ajaxLoginProcessingFilter;
+    }
+    @Bean
+    public AuthenticationManager authenticationManagerBean() throws Exception {
+        return super.authenticationManagerBean();
+    }
+}
+
+2. AjaxAuthenticationProvider 생성
+public class AjaxAuthenticationProvider implements AuthenticationProvider {
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private UserDetailsService userDetailsService;
+
+    @Override
+    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+        String username = authentication.getName();
+        String password = (String)authentication.getCredentials();
+
+        AccountContext accountContext = (AccountContext) userDetailsService.loadUserByUsername(username);
+        if(!passwordEncoder.matches(password, accountContext.getAccount().getPassword())){
+            throw new BadCredentialsException("Invalid password");
+        }
+
+        //부가 정보 체크인데 생략
+       /* FormWebAuthenticationDetails formWebAuthenticationDetails = (FormWebAuthenticationDetails) authentication.getDetails();
+        String secretKey = formWebAuthenticationDetails.getSecretKey();
+        if(secretKey == null || !"secret".equals(secretKey)){
+            throw new InsufficientAuthenticationException("InsufficientAuthenticationException");
+        }*/
+
+        AjaxAuthenticationToken authenticationToken = new AjaxAuthenticationToken(
+                accountContext.getAccount(), null, accountContext.getAuthorities());
+
+        return authenticationToken;
+    }
+
+    @Override
+    public boolean supports(Class<?> authentication) {
+        return authentication.equals(AjaxAuthenticationToken.class);//전이랑 다르게 체크하네.
+    }
+}
+
+** 동작 흐름 **
+FilterChainProxy
+  nextFilter.doFilter(request, response, this);
+-> AjaxLoginprocessingFilter
+-> ProviderManager(AuthenticationManager?)
+     if(!provider.supports(toTest)){..}
+-> AjaxAuthenticationProvider
+     authenticate()
+       return AjaxAuthenticationToken()
+-> AjaxLoginProcessingFilter(AbstractAuthenticationProcessingFilter)
+     successfulAuthentication()
+       SecurityContextHolder.getContext().setAuthentication(authResult);
+       successHandler.onAuthenticationSuccess()
+          

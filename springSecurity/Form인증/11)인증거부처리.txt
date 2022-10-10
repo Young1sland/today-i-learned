@@ -1,0 +1,53 @@
+인증 거부 시 /denied 페이지로 이동하도록 해보자.
+
+
+public class CustomAccessDeniedHandler implements AccessDeniedHandler {
+    private String errorPage;
+
+    @Override
+    public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException accessDeniedException) throws IOException, ServletException {
+        String deniedUrl = errorPage + "?exception=" + accessDeniedException.getMessage();
+        response.sendRedirect(deniedUrl);
+    }
+
+    public void setErrorPage(String errorPage){
+        this.errorPage = errorPage;
+    }
+}
+
+SecurityConfig 이상하게 AuthenticationDetailsSource로 DI하면 exceptionHandling 뜨지 않음.
+     Generic 정의인 듯 한데.. 일단 FormAuthenticationDetailsSource 받으면 문제 없음. 추후 연구
+     private final FormAuthenticationDetailsSource formAuthenticationDetailsSource;
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .authorizeRequests() //인가 요청
+                .antMatchers("/", "/users", "user/login/**", "/login*").permitAll()
+                .antMatchers("/mypage").hasRole("USER")
+                .antMatchers("/messages").hasRole("MANAGER")
+                .antMatchers("/config").hasRole("ADMIN")
+                .anyRequest().authenticated() //모든 요청에 대해 인증 요구
+                .and()
+                .formLogin() //폼 로그인 사용
+                .loginPage("/login")
+                .loginProcessingUrl("/login_proc")
+                .authenticationDetailsSource(formAuthenticationDetailsSource)
+                .defaultSuccessUrl("/")
+                .successHandler(customAuthenticationSuccessHandler)
+                .failureHandler(customAuthenticationFailureHandler)
+                .permitAll()
+                .and()
+                .exceptionHandling()
+                .accessDeniedHandler(accessDeniedHandler());
+
+
+Controller
+ @GetMapping("/denied")
+    public String accessDenied(@RequestParam(value = "exception", required = false) String exception, Model model){
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Account account = (Account) authentication.getPrincipal();
+        model.addAttribute("username", account.getUsername());
+        model.addAttribute("exception", exception);
+
+        return "user/login/denied";
+    }
