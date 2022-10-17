@@ -34,7 +34,7 @@
   Set-Cookie: age=30; Expires=Fri, 30 Sep 2022 14:54:50 GMT;
   ```
 - 클라이언트에서 쿠키 설정
-  자바스크립를 사용해 쿠키 설정
+  자바스크립트를 사용해 쿠키 설정
   ```js
   document.cookie = "name=test;"
   document.cookie = "age=30; Expires=Fri, 30 Sep 2022 14:54:50 GMT;"
@@ -44,6 +44,7 @@
   - Application Tab에서 확인
 - 세션 하이재킹(Session Hijacking)  
   공격자가 이용자의 쿠키를 훔쳐 세션에 해당하는 이용자의 인증 상태를 획득.
+
 
 
 
