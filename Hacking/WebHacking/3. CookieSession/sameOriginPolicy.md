@@ -25,6 +25,7 @@ console.log(crossNewWindow.location.href);
 //Origin 오류 발생
 
 crossNewWindow.location.href = "https://dreamhack.io";
+//location.href="주소" 주소로 이동함.
 ```
 ## SOP 접근 허용하거나 완화 처리해야 하는 경우
 - SOP 영향 받지 않고 외부 출처에 대한 접근 허용하는 경우  
