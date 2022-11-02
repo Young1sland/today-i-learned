@@ -46,6 +46,7 @@ def sendmoney(name):
     <input type="submit">
 </form>
 ```
+
 ```http
 GET /main-logo.png HTTP/1.1
 HOST: test.dreamhack.io
@@ -56,8 +57,6 @@ Host: test.dreamhack.io
 Cookie: session_id=97djkdfjdklf
 user=dream&pass=hack
 ```
-
-
 
 ### img 태그를 사용한 스크립트의 예시
 해당 태그는 이미지의 크기를 줄일 수 있는 옵션을 제공함. 이를 활용하면 이용자에게 들키지않고 임의 페이지에 요청을 보낼 수 있음.
