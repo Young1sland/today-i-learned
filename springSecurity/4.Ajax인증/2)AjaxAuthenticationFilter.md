@@ -1,9 +1,19 @@
-addFilterBefore : 기존 필터 앞에 배치
-addFilter : 맨마지막에 추가
-addFilterAfter : 기존 필터 뒤에 배치
-addFilterAt : 기존 필터 대치
+# AjaxAuthenticationFilter
+
+- AbstractAuthentictionProcessingFilter 상속
+- /api/login 요청정보와 매칭, 요청방식이 Ajax이면 필터 작동
+- AjaxAuthenticstionToken 생성하여 AuthenticationManager에 전달하여 인증 처리
+- Filter 추가
+    http.addFilterBefore(ajaxLoginProcessingFilter(), UsernamePasswordAuthenticationFilter.class);
+
+#### addFilter
+- addFilterBefore : 기존 필터 앞에 배치
+- addFilter : 맨마지막에 추가
+- addFilterAfter : 기존 필터 뒤에 배치
+- addFilterAt : 기존 필터 대치
 
 1. Ajax 인증 처리용 필터 생성 및 추가. 
+```java
 public class AjaxLoginProcessingFilter extends AbstractAuthenticationProcessingFilter {
     private ObjectMapper objectMapper = new ObjectMapper();
 
@@ -23,6 +33,7 @@ public class AjaxLoginProcessingFilter extends AbstractAuthenticationProcessingF
 
         //AjaxAuthentication을 위한 AjaxAuthenticationToken 객체를 생성해준다.
         AjaxAuthenticationToken ajaxAuthenticationToken = new AjaxAuthenticationToken(accountDto.getUsername(), accountDto.getPassword());
+        //AuthenticationManager에 전달
         return getAuthenticationManager().authenticate(ajaxAuthenticationToken);
     }
 
@@ -34,9 +45,12 @@ public class AjaxLoginProcessingFilter extends AbstractAuthenticationProcessingF
         return false;
     }
 }
+```
 
 
-2. AjaxAuthenticationToken 객체 생성. UsernamePasswordAuthenticationToken 내용을 복사해오자.
+2. AjaxAuthenticationToken 객체 생성. 
+    기존의 UsernamePasswordAuthenticationToken 내용을 복사해오자.
+```java
 public class AjaxAuthenticationToken extends AbstractAuthenticationToken {
     private static final long serialVersionUID = 570L;
     private final Object principal;
@@ -85,9 +99,10 @@ public class AjaxAuthenticationToken extends AbstractAuthenticationToken {
         this.credentials = null;
     }
 }
+```
 
-3. SecurityConfig
-
+3. SecurityConfig에 추가
+```java
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
@@ -99,6 +114,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     //해보면 AuthenticationManager를 찾을 수 없다고 나온다. 추가해준다.
+    //필터를 만들때는 AuthenticationManager를 설정해줘야 함
     @Bean
     public AuthenticationManager authenticationManagerBean() throws Exception {
         return super.authenticationManagerBean();
@@ -116,3 +132,5 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     }
 }
+//AjaxAuthenticationProvider가 존재하지 않으므로 에러 발생함..
+```
