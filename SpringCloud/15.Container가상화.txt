@@ -1,0 +1,77 @@
+$ docker info //도커 정보
+$ docker image ls //보유 중인 이미지 조회
+
+$ docker run ubuntu:16.04 //docker 실행. 바로 종료됨.
+$ docker container ls -a  //모든 컨테이너 정보. 종료된 것 확인 가능
+  docker ps -a //위와 같음
+$ docker container rm {ID} //삭제
+
+$ docker run -d -p 3306:3306 
+  -e MYSQL_ALLOW_EMPTY_PASSWORD=true 
+  --name mysql mysql:5.7
+  * -d 옵션은 백그라운드 실행으로 포그라운드 로그는 표시되지 않음.
+    -p 옵션 : {host port}:{container port}
+    -e MYSQL_ALLOW_EMPTY_PASSWORD=true
+       mysql.5.7 이미지는 root password를 꼭 입력해줘야 함.
+       그래서 MYSQL_ALLOW_EMPTY_PASSWORD 옵션을 준다.
+    -name mysql 이름을 부여함. 안하면 랜덤하게 부여 됨.
+
+$ docker exec -it mysql bash
+  exec : 실행하고자 하는 컨테이너에 추가적인 작업할 때
+  -it : 인터랙티브하게 커맨드를 전달하겠다.
+  bash : bash 쉘로 커맨드를 실행하겠다.
+
+
+실습
+$ docker pull mysql:5.7  //mysql 이미지 받기
+$ docker run -d -p 3306:3306 
+  -e MYSQL_ALLOW_EMPTY_PASSWORD=true 
+  --name mysql mysql:5.7
+$ docker ps -a
+$ docker logs {container ID} //도커 로그(백그라운드에서 실행 중인 도커 로그 보기)
+$ docker exec -it mysql /bin/bash //내부 bash shell 접근
+bash# mysql -uroot -p -h127.0.0.1
+mysql> show databases;
+mysql> create database mydb;
+workbench로 접속해보자. localhost:3306 root
+$ docker stop mysql //종료
+$ docker container rm mysql //삭제하자.
+$ docker ps -a //존재하지 않음
+
+도커 이미지 만들기
+$ docker build -t wisdom/users-service:1.0 .
+  현재 디렉토리에 있는 파일들로 wisdom/users-service:1.0 란 이름으로 이미지 생성
+$ docker push /wisdom/user-service:1.0 dockerhub 업로드 하기
+$ docker push /wisdom/users-service:1.0 dockerhub 다운로드 하기
+
+실습
+UserService의 폴더에 Dockerfile 생성.
+  FROM openjdk:17-ea-11-jdk-slim
+  VOLUME /tmp //가상 볼륨에 폴더 생성
+  COPY target/user-service-1.0.jar UserService.jar
+  ENTRYPOINT ["java","-jar","UserService.jar"] //같이 실행되는 커맨드
+UserService 컴파일(jar 생성) 
+  $ mvn clean compile package -DskipTests=true
+  target폴더에 user-service-0.0.1-SNAPSHOT.jar이렇게 생성됨.
+생성되는 jar 파일 이름을 변경해보자.
+  pom.xml에서 변경하고 다시 빌드
+  <artifactId>user-service</artifactId>
+  <version>1.0</version>
+  <name>user-service</name>
+도커 이미지를 빌드 & 업로드
+  $ docker build --tag leeiubba/user-service:1.0 .
+  $ docker push leeiubba/user-service:1.0
+    tag를 입력하지 않으면  latest로 처리하므로 에러발생. 태그 입력해주자.
+기존 이미지를 지우고 다시 받기
+  $ docker rmi {imageID}
+  $ docker pull leeiubba/user-service:1.0
+실행하기
+ $ docker run leeiubba/user-service:1.0 (-d  백그라운드, -name 이름지정)
+ ctrl+c 종료
+도커 이미지 정리하기
+$ docker system prune
+
+
+
+
+ 

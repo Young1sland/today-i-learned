@@ -1,0 +1,165 @@
+kafka 다운
+ - bin 폴더 : 실행파일
+ - config 폴더 : 환경 설정 파일
+ - kafka를 실제로 쓸 때는 zookeeper, kafka 각 3개 이상 설정하는게 안정적이다.
+
+Kafka 실행
+zookeeper 실행
+./bin/zookeeper-server-start.sh ./config/zookeeper.properties
+
+Kafka 실행
+./bin/kafka-server-start.sh ./config/server.properties
+
+Topic 확인
+./bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+
+Topic 생성
+./bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+ --create --topic {topic 이름} --partions 1
+
+Topic 목록 확인
+./bin/kafka-topics.sh --bootstrap-server localhost:902 --list
+
+자세한 Topic 정보 조회
+./bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+ --describe --topic {topic 이름}
+
+* 터미널에서 동작 확인해 볼 수 있도록 제공되고 있다.
+producer 등록
+./bin/kafka-console-producer.sh --broker-list localhost:9092 --top
+ic {topic 이름}
+
+consumer 등록
+./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic 
+ {topic 이름} --from-beginning
+* --from-beginning 처음부터 끝까지 다 가져오기
+
+MariaDB
+$ brew install mariadb
+$ mysql.server start, mysql.server stop, mysql.server status
+$ mysql -uroot
+ * Access denied 발생 시
+   mysql> use mysql;
+   mysql> select user,host, plugin FROM mysql.user;
+   mysql> set password for 'root'@'localhost'=password('test1234');
+   mysql> flush privileges;
+
+사용할 수 있는 DB 보기
+ > show databases;
+DB 생성
+ > create database mydb;
+사용할 DB 지정
+ > use mydb;
+
+h2-console설정
+ - Driver Class : org.mariadb.jdbc.Driver
+ - JDBC URL : jdbc:mysql://localhost:3306/mydb
+ - User Name : root
+ - Passwrod : test1357
+
+table 만들자
+create table users(
+ id int auto_increment primary key,
+ user_id varchar(20),
+ pwd varchar(20),
+ name varchar(20),
+ created_at datetime default NOW()
+);
+
+kafka-connect, jdbc Connector 설치
+
+kafka-connect 실행
+$ ./bin/connect-distributed ./etc/kafka/connect-distributed.properties
+
+kafka-connect를 실행하고  topic을 보면 connect관련 topic이 추가되어 있음을 확인할 수 있다.
+$ ./bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+__consumer_offsets
+connect-configs
+connect-offsets
+connect-status
+quickstart-events
+
+confluentinc-kafka-connect-jdbc-10.5.2의 
+ kafka-connect-jdbc-10.5.2.jar 경로를 
+ confluent-6.1.0/etc/kafka/connect-distributed.properties에
+ 추가해준다.
+ plugin.path=/Users/wisdom/Study/Spring/SpringCloudMSA/confluentinc-kafka-connect-jdbc-10.5.2/lib
+
+
+mariadb-java-client-2.7.2.jar파일을 kafka-connect share폴더에 복사해준다.
+.m2/repository/org/mariadb/jdbc/mariadb-java-client/2.7.2
+ $ cp ./mariadb-java-client-2.7.2.jar 
+  ~/Study/Spring/SpringCloudMSA/confluent-6.1.0/share/java/kafka/
+
+> show tables;
+> desc [table name]; //테이블 형태 보기
+
+kafka source connect -> kafka cluster -> kafka Sink connect
+ Source Connect가 데이터를 전달하면 Topic에 쌓임. 
+ Sink Connect는 Topic에 있는 데이터를 받아 처리.
+
+Kafka Souce Connect test
+ - Kafka Source Connect 추가
+   {
+    "name": "my-source-connect",
+    "config":{
+        "connector.class" : "io.confluent.connect.jdbc.JdbcSourceConnector",
+        "connection.url" : "jdbc:mysql://localhost:3306/mydb",
+        "connection.user" : "root",
+        "connection.password" : "chunjae4",
+        "mode" : "incrementing",
+        "incrementing.column.name" : "id", //id를 증가시켜줌
+        "table.whitelist": "users", //whitelist에 있는 table의 변경사항을 체크해서 가져옴
+        "topic.prefix" : "my_topic_", //my_topic_users 토픽에 저장하겠다
+        "tasks.max" : "1"
+      }
+    }
+
+ - kafka connect 확인
+    - 현재 등록된 connector 확인
+      GET localhost:8083/connectors 
+    - connector 상세 정보 확인
+      GET localhost:8083/connectors/{connector name}/status
+ - users 디비에 insert하여 확인해보자.
+    - Insert
+      mysql> insert into users(user_id, pwd,name) values('user1','test1111','User Name');
+    - Topic 확인
+      ./bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+    - consumer로 확인
+      ./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic my_topic_users --from-beginning
+
+
+Kafka Sink Connect test
+  - Sink Connect 추가
+    {
+      "name": "my-sink-connect",
+      "config":{
+          "connector.class" : "io.confluent.connect.jdbc.JdbcSinkConnector",
+          "connection.url" : "jdbc:mysql://localhost:3306/mydb",
+          "connection.user" : "root",
+          "connection.password" : "chunjae4",
+          "auto.create" : "true", //Topic의 이름과 같은 테이블 생성
+          "auto.evolve" : "true", 
+          "delete.enabled": "false",
+          "tasks.max" : "1",
+          "topics":"my_topic_users"
+      }
+    }
+  - 등록하고 db 확인하면 my_topic_users table이 생성되어 있음.
+    user 디비에 insert하면 my_topic_users 테이블도 insert됨
+  - console_producer로 확인해 보자.
+    $ ./bin/kafka-console-producer.sh --broker-list 
+       localhost:9092 --topic my_topic_users
+     >{"schema":{"type":"struct","fields":
+       ....
+       ,"payload":{"id":4,"user_id":"user5",
+       "pwd":"user5555","name":"User5",
+       "created_at":1662508366000}}
+    => my_topic_users에 db에 insert 됨. users 디비는 물론 insert안됨
+    
+
+
+    
+
+
+    

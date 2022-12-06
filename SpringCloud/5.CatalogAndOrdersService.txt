@@ -1,0 +1,50 @@
+@Data
+//null이 아닌 값만 포함하겠다
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class Response/user {
+    private String email;
+    private String name;
+    ..
+}
+
+@Override
+public UserDto getUserByUserId(String userId) {
+    UserEntity userEntity = userRepository.findByUserId(userId);
+    if(userEntity == null){
+        //UsernameNotFoundException class 존재?
+        throw new UsernameNotFoundException("user not found");
+    }
+    UserDto userDto = new ModelMapper().map(userEntity, UserDto.class);
+    ..    
+    userDto.setOrders(ordersList);
+    return userDto;
+}
+
+    @Override
+    public Iterable<UserEntity> getUserByAll() {
+        return userRepository.findAll();
+    }
+
+* Iterable
+  - Collection의 상위 interface
+  - iterator()메소드를 하위 클래스에서 무조건 구현을 하게 만들기 위함이다. 
+    public interface Iterable<T> {
+        Iterator<T> iterator();
+    ..
+    }
+  - iterator
+    public interface Iterator<E> {    
+        boolean hasNext();   
+        E next();
+    }
+  - 사용 예
+    LinkedList<String> list = new LinkedList<>();
+    list.add("Lee"); list.add("ekk"); list.add("eww");
+    Iterator it = list.iterator();
+    while (it.hasNext()) {
+        System.out.print(it.next() + " ");
+    }
+
+
+
+

@@ -1,0 +1,119 @@
+1. Login
+   1) AuthenticationFilter.java
+      - Spring Security를 이용한 로그인 요청 발생 시 작업을 처리해 주는 Custom Filter 클래스
+      - UsernamePasswordAuthenticationFilter 상속
+      - attemptAuthentication(), successfulAuthentication() 함수 Override
+                  
+      public class AuthenticationFilter extends UsernamePasswordAuthenticationFilter {
+         ..
+        @Override
+        public Authentication attemptAuthentication(
+          HttpServletRequest request,
+          HttpServletResponse response) throws AuthenticationException {
+          try {
+            //HttpServletRequest 객체에서 json 받아오기?
+            RequestLogin creds = new ObjectMapper().readValue(
+              request.getInputStream(), 
+              RequestLogin.class);
+              return getAuthenticationManager().authenticate(
+                //token형태로 변경
+                new UsernamePasswordAuthenticationToken(
+                  creds.getEmail(),
+                  creds.getPassword(),
+                  new ArrayList<>()));
+            } catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+        }
+        
+        @Override
+        protected void successfulAuthentication(
+          HttpServletRequest request, 
+          HttpServletResponse response, 
+          FilterChain chain, 
+          Authentication authResult) throws IOException, ServletException {
+            String userName =  ((User) authResult.getPrincipal()).getUsername();
+            UserDto userDetails = userService.getUserDetailsByEmail(userName);
+
+            String token = Jwts.builder()
+              .setSubject(userDetails.getUserId())
+              .setExpiration(new Date(System.currentTimeMillis()+ Long.parseLong(env.getProperty("token.expiration_time"))))
+              .signWith(SignatureAlgorithm.HS512, env.getProperty("token.secret"))
+              .compact();
+
+              response.addHeader("token", token);
+              response.addHeader("userId", userDetails.getUserId());
+          }
+        }  
+   
+   2) WebSecurity.java
+      - 사용자 요청에 대해 AuthenticationFilter를 거치도록 수정
+        @Configuration
+        @EnableWebSecurity
+        public class WebSecurity extends WebSecurityConfigurerAdapter {
+            ..
+            //권한 관련 부분
+            @Override
+            protected void configure(HttpSecurity http) throws Exception {
+                http.csrf().disable();
+                //getAuthenticationFilter추가
+                //.authorizeHttpRequests().antMatchers("/users/**").permitAll();
+                http.authorizeRequests()
+                        .antMatchers("/actuator/**").permitAll()
+                        .antMatchers("/**")
+                        .hasIpAddress("172.30.74.23")
+                                .and()
+                                .addFilter(getAuthenticationFilter());
+                http.headers().frameOptions().disable();
+            }
+
+            private AuthenticationFilter getAuthenticationFilter() throws Exception{
+                AuthenticationFilter authenticationFilter = new AuthenticationFilter(authenticationManager(), userService, env);
+                //authenticationFilter.setAuthenticationManager(authenticationManager());
+                return authenticationFilter;
+            }
+
+            //인증 관련된 부분
+            //select pwd from users where email=?
+            //db_pwd(encrypted) == input_pwd(encrypted)
+            @Override
+            protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+                auth.userDetailsService(userService).passwordEncoder(bCryptPasswordEncoder);
+            }
+        }
+    3) UserService는 userDetailsService를 extends해야 함.
+       loadUserByUsername을 implement해준다.
+       public interface UserService extends UserDetailsService
+
+       public class UserServiceImpl implements UserService{
+         @Override
+         public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+           UserEntity userEntity = userRepository.findByEmail(username);
+           if(userEntity == null){
+             throw new UsernameNotFoundException(username);
+           }
+           return new User(userEntity.getEmail(), userEntity.getEncryptedPwd(),
+             true, true, true,true,
+             new ArrayList<>()); //마지막 ArrayList는 부여할 권한
+       }
+
+  
+  2.API Gateway Service 수정
+  //ReWritePath로 /user-service path를 없애준다.
+    cloud:
+    gateway:
+      default-filters:
+        - name: GlobalFilter
+          args:
+            baseMessage: Spring Cloud Gateway Global Filter
+            preLogger: true
+            postLogger: true
+      routes:
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/user-service/login
+            - Method=POST
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/user-service/(?<segment>.*), /$\{segment}

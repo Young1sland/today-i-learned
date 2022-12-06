@@ -1,0 +1,25 @@
+Mysql Orders 테이블 생성
+    create table orders(id int auto_increment primary key,
+    user_id varchar(50) not null,
+    product_id varchar(20) not null,
+    order_id varchar(50) not null,
+    qty int default 0,
+    unit_price int default 0,
+    total_price int default 0,
+    created_at datetime default now());
+
+
+OrderService DB 변경
+  jpa:
+    hibernate:
+      ddl-auto: update
+  datasource:
+#    driver-class-name: org.h2.Driver
+#    url: jdbc:h2:mem:testdb
+    url: jdbc:mariadb://localhost:3306/mydb
+    driver-class-name: org.mariadb.jdbc.Driver
+    username: root
+    password: chunjae4
+    
+
+

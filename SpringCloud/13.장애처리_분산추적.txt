@@ -1,0 +1,67 @@
+CircuitBreaker
+  - 장애가 발생하는 서비스에 반복적인 호출이 되지 못하게 차ㄴ
+  - 특정 서비스가 정상적으로 동작하지 않을 경우 다른 기능으로
+    대체 수행 -> 장애 회피
+  - Open : 문제가 발생한 상태. circuitBreaker가 동작하는 상태
+    Closed : 정상적으로 마이크로 서비스 사용가능한 상태
+
+사용 예
+    @Override
+    public UserDto getUserByUserId(String userId) {
+        //비정상 동작일 경우 빈 ArrayList를 반환하도록 함.
+        CircuitBreaker circuitBreaker =  circuitBreakerFactory.create("circuitbreaker");
+        List<ResponseOrder> ordersList = circuitBreaker.run(() -> orderServiceClient.getOrders(userId),
+                throwable -> new ArrayList<>());
+        userDto.setOrders(ordersList);
+        return userDto;
+    }
+
+
+Resilience4j
+@Configuration
+public class Resilience4JConfig {
+    @Bean
+    public Customizer<Resilience4JCircuitBreakerFactory> globalCustomConfiguration(){
+        CircuitBreakerConfig circuitBreakerConfig = CircuitBreakerConfig.custom()
+                .failureRateThreshold(4) //100중에 4번 실패 발생했을 경우 동작
+
+                //circuitBreaker를 open한 상태를 유지하는 지속 기간 의미, 이 기간 이후에 half-open상태, default:60secs
+                .waitDurationInOpenState(Duration.ofMillis(1000))
+                .slidingWindowType(CircuitBreakerConfig.SlidingWindowType.COUNT_BASED)
+                .slidingWindowSize(2) // circuitBreaker가 닫힐 때 호출 결과를 기록하는 데 사용되는 슬라이딩 창의 크기 구성. default:100
+                .build();
+
+        //TimeLimiter는 future supplier의 time limit을 정하는 API, default : 1초 (얼마나 응답이 없으면 문제로 간주할 것인가)
+        TimeLimiterConfig timeLimiterConfig = TimeLimiterConfig.custom()
+                .timeoutDuration(Duration.ofSeconds(4))
+                .build();
+
+        return factory -> factory.configureDefault(id -> new Resilience4JConfigBuilder(id)
+                .timeLimiterConfig(timeLimiterConfig)
+                .circuitBreakerConfig(circuitBreakerConfig)
+                .build());
+    }
+}
+
+MicroService 분산 추적
+ - Spring cloud Sleuth + Zipkin
+ - sleuth : springboot에서 발생한 로그 데이터를 zipkin으로 전달
+ - 같은 요청이면 같은 TraceID, MicroService간에는 SpanID
+   A->B TraceID : AA, Span ID: AA
+   B->C TraceID : AA, Span ID: BB
+   C->E TraceId : AA, Span ID : CC
+   다음 요청
+   A->B TraceID : DDD, Span ID :DD ..
+   B->E TraceID : DDD, Span OD : EE ..이런식이다
+
+zipkin 다운로드
+$ curl -sSL https://zipkin.io/quickstart.sh | bash -s
+$ java -jar zipkin.jar
+http://127.0.0.1:9411/zipkin
+
+ 
+
+
+
+
+

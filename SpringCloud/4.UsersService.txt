@@ -1,0 +1,240 @@
+1. Configuration 정보 사용 방법
+ - Environment 객체 사용
+ - @Value 사용
+   application.yml
+   greeting:
+     message: Welcome to Simple E-Commerce.
+
+   @Data
+   @Component
+   public class Greeting {
+      @Value("${greeting.message})
+      private String message;
+   }
+  
+2. h2 DB 사용
+   mvnrepository.com -> h2 검색
+    <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>1.3.176</version>
+            <scope>runtime</scope> -> test를 runtime으로 변경해야 바로 확인됨.
+    </dependency>
+
+    application.yml
+      h2:
+        console:
+          enabled: true
+        settings:
+          web-allow-others: true //외부 접근 허용
+        path: /h2-console
+  
+3. Object 및 dto 정의
+  RequestUser -> UserDto -> UserEntity
+  @Data
+  public class RequestUser {
+      @NotNull(message = "Email cannot be null")
+      @Size(min=2, message="Email not be less than two characters")
+      @Email
+      private String email;
+
+      @NotNull(message = "Name cannot be null")
+      @Size(min=2, message="Name not be less than two characters")
+      private String name;
+
+      @NotNull(message = "Password cannot be null")
+      @Size(min=8, message="Password must be equal or greater than 8 characters")
+      private String pwd;
+  }
+
+  @Data
+  public class UserDto {
+      private String email;
+      private String name;
+      private String pwd;
+      private String userId;
+      private Date createdAt;
+
+      private String encryptedPwd;
+
+      private List<ResponseOrder> orders;
+  }
+
+4. Service interface 및 구현부 만들기
+   service interface와 구현부를 따로 둔다.
+   public interface UserService {
+      UserDto createUser(UserDto userDto);
+   }
+
+   @Service
+   public class UserServiceImpl implements UserService
+   {
+       @Override
+       public UserDto createUser(UserDto userDto) {
+         userDto.setUserId(UUID.randomUUID().toString());
+         ..       
+       }
+   }
+5. JPA Entity 구현
+   - User Entitiy
+    @Data
+    @Entity
+    @Table(name= "users")
+    public class UserEntity {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+
+        @Column(nullable = false, length = 50)
+        private String email;
+
+        @Column(nullable = false, unique = true)
+        private String userId;
+
+        @Column(nullable = false, unique = true)
+        private String encryptedPwd;
+    }
+   - User Repository
+     public interface UserRepository extends CrudRepository<UserEntity, Long> {
+        UserEntity findByUserId(String userId);
+        UserEntity findByEmail(String username);
+     }
+
+6. modelmapper 활용
+    @Override
+    public UserDto createUser(UserDto userDto) {
+        userDto.setUserId(UUID.randomUUID().toString());
+
+        ModelMapper mapper = new ModelMapper();
+        mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        UserEntity userEntity = mapper.map(userDto, UserEntity.class);
+        userEntity.setEncryptedPwd("encryptedPwd");
+        userRepository.save(userEntity);
+
+        UserDto returnUserDto = mapper.map(userEntity, UserDto.class);
+        return returnUserDto;
+    }
+  
+    컨트롤러
+    @PostMapping("/users")
+    public ResponseEntity<ResponseUser> createUser(@RequestBody RequestUser user){
+        ModelMapper mapper = new ModelMapper();
+        mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        UserDto userDto = mapper.map(user, UserDto.class);
+        userService.createUser(userDto);
+        ResponseUser responseUser = mapper.map(userDto, ResponseUser.class);
+        return ResponseEntity.status(HttpStatus.CREATED).body(responseUser);
+    }
+
+    @Data
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public class ResponseUser {
+        private String email;
+        private String name;
+        private String userId;
+
+        private List<ResponseOrder> orders;
+    }
+
+7. Security 연동
+  - Authentication + Authorization(인증 + 권한)
+  - Step
+    1. spring security jar를 dependency에 추가
+    2. WebSecurityConfigurerAdapter를 상속받는 Securiy Configuration 클래스 생성
+    3. Security Configuration 클래스에 @EnableWebSecurity 추가
+    4. Authentication -> configure(AuthenticationManagerBuilder auth)메서도 재정의
+    5. Password encode를 위한 BcryptPasswordEncoder 빈 정의
+    6. Authorization -> configure(HttpSecurity http)메서드를 재정의
+  
+  1) security dependency 추가
+      <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+      </dependency>
+  2) Security Configuration Class 생성
+     - WebSecurityConfigurerAdapter 상속 받음
+     - Configuration, EnableWebSecurity annotation 추가
+     - configure(HttpSecurity http) 권한 관련 처리
+     - configure(AuthenticationManagerBuilder auth) 인증 관련 처리
+     * spring security library를 추가한 application은 로그에 보면
+       Using generated security password: XXX-XX 이렇게 표시된다.
+    
+     @Configuration
+     @EnableWebSecurity
+     public class WebSecurity extends WebSecurityConfigurerAdapter {
+        private UserService userService;
+        private BCryptPasswordEncoder bCryptPasswordEncoder;
+        Environment env;
+
+        @Autowired
+        public WebSecurity(Environment env, BCryptPasswordEncoder bCryptPasswordEncoder,UserService userService) {
+            this.userService = userService;
+            this.bCryptPasswordEncoder = bCryptPasswordEncoder;
+            this.env = env;
+        }
+
+        @Override
+        protected void configure(HttpSecurity http) throws Exception {
+            http.csrf().disable(); //CSRF 사용하지 않음
+            .authorizeHttpRequests().antMatchers("/users/**").permitAll(); //통과
+            //h2 접속해보면 frame이 나눠져 있고 x표시에러가 뜬다. frame option 사용하지 않도록 하기를 추가해주자.
+            http.headers().frameOptions().disable();
+        }
+
+        private AuthenticationFilter getAuthenticationFilter() throws Exception{
+            AuthenticationFilter authenticationFilter = new AuthenticationFilter(authenticationManager(), userService, env);
+            //authenticationFilter.setAuthenticationManager(authenticationManager());
+
+            return authenticationFilter;
+        }
+
+        //select pwd from users where email=?
+        //db_pwd(encrypted) == input_pwd(encrypted)
+        @Override
+        protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+            auth.userDetailsService(userService).passwordEncoder(bCryptPasswordEncoder);
+        }
+     }
+
+  3) BcryptPasswordEncoder 적용
+        UserServiceImpl Class
+            UserRepository userRepository;
+            BCryptPasswordEncoder passwordEncoder;         
+            @Autowired
+            public UserServiceImpl(UserRepository userRepository,
+                          BCryptPasswordEncoder passwordEncoder) {
+                this.userRepository = userRepository;
+                this.passwordEncoder = passwordEncoder;        
+            }
+            @Override
+            public UserDto createUser(UserDto userDto) {
+                ..
+                userEntity.setEncryptedPwd(passwordEncoder.encode(userDto.getPwd()));
+                userRepository.save(userEntity);
+
+            }
+        * error 발생함. BCryptPasswordEncoder는 어디서도 빈을 등록한 적이 없다.
+          Autowired할 수 없다.
+          => 초기 실행되는 클래스에 같은 타입의 빈을 등록해두자.
+          public class UserServiceApplication {
+              public static void main(String[] args) {
+                  SpringApplication.run(UserServiceApplication.class, args);
+              }
+
+              @Bean
+              public BCryptPasswordEncoder passwordEncoder(){
+                  return new BCryptPasswordEncoder();
+              }
+          }
+
+
+
+    
+
+ 
+
+
+
+
+
+

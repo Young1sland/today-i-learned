@@ -1,0 +1,14 @@
+Micrometer
+ - https://Micrometer.io
+ - JVM 기반의 애플리케이션 Metric 제공
+ - Spring Framework 5, Spring Boot 2부터 Spring의 Metrics 처리
+ - Prometheus 등의 다양한 모니터링 시스템 지원
+Timer
+ - 짧은 지연 시간, 이벤트의 사용 빈도 측정
+ - 시계열로 이벤트의 시간,호출빈도 등 제공
+ - @Timed 제공
+
+
+Prometheus
+ $ ./prometheus --config=prometheus.yml
+ 

@@ -1,0 +1,118 @@
+1. Spring Cloud Discovery
+  1) Discovery Server
+    a) 선택 패키지
+       Spring Cloud Discovery -> Eureka server
+    b) @EnableEurekaServer 추가
+  2) Discovery client
+    a) Spring Cloud Discovery -> Eureka Discovery client
+    b) @EnableDiscoveryClient 추가
+    * application.yml
+      eureka.client.fetch-registry=true
+      => Eureka서버로부터 인스턴스들의 정보를 주기적으로 가져올 것인지를 설정하는 속성
+         true로 설정하면 갱신된 정보를 받겠다는 설정
+
+2. 같은 서비스 추가 실행하기
+    itelliJ의 실행의 EditConfiguration-> 복사 생성 ->VM options에 -Dserver.port={port}
+
+    $ mvn spring-boot:run -Dspring-boot.run.jvmArguments='-Dserver.port=9003'
+
+    $ mvn clean compile package
+    $ java -jar -Dserver.port=9004 ./target/user-service-0.0.1-SNAPSHOT.jar
+    * target 폴더에 빌드된 결과 저장됨.
+
+    매번 복잡하게 port를 변경해 추가 실행할 수 없으므로
+    application.yml의 port를 0으로 바꿔주자.
+        server:
+          port: 0
+
+    eureka:
+      instance:
+        instance-id: ${spring.cloud.client.hostname}:${spring.application.instance_id:${random.value}}
+    $ mvn spring-boot:run //이렇게만 해주면 추가 실행 됨
+
+* Spring Cloud gateway는 tomcat 아닌 netty로 동작(비동기)
+
+
+$ git remote -v
+$ git remote add origin https://github.com/leeiubba/spring-cloud.git
+
+비대칭키 암호화
+$ keytool -genkeypair -alias [사용하고자 하는 alias 이름] \
+  -keyalg [알고리즘 방식] -dname [서명 정보 CN(company Name), OU(ouganization Unit), O(Ouganization), L(Location), C(Country)] \
+  - keypass [password] -keystore [filename] -storepass [password]
+키 생성
+$ keytool -genkeypair -alias apiEncryptionKey  -keyalg RSA
+ -dname "CN=Wisdom, OU=API Development, O=Wise, L=Seoul, C=KR"
+ -keypass "test1234" -keystore apiEncryptionKey.jks -storepass "test1234"
+
+Key 정보 확인, Private Key 정보 확인 됨 (-v는 자세한 정보 옵션)
+$ keytool -list -keystore apiEncryptionKey.jks -v
+
+Public Key 추출, 인증서 파일 추출
+$ keytool -export -alias apiEncryptionKey -keystore apiEncryptionKey.jks -rfc -file [trustServer.cer]
+rfc - (Request For Comment : 표준 공개 문서 포맷)
+
+인증서 파일을 다시 jks로 변환
+$ keytool -import -alias trustServer -file trustServer.cer -keystore publicKey.jks
+
+다시 key 정보 확인, (-v는 자세한 정보 옵션)
+$ keytool -list -keystore publicKey.jsk -v
+
+Kafka 실행
+zookeeper 실행
+./bin/zookeeper-server-start.sh ./config/zookeeper.properties
+
+Kafka 실행
+./bin/kafka-server-start.sh ./config/server.properties
+
+Topic 확인
+./bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+
+Topic 생성
+./bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+ --create --topic quickstart-events --partions 1
+
+자세한 Topic 정보 조회
+./bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+ --describe --topic quickstart-events
+
+producer 등록
+./bin/kafka-console-producer.sh --broker-list localhost:9092 --top
+ic quickstart-events
+
+consumer 등록
+./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic quicks
+tart-events --from-beginning
+
+
+MariaDB
+$ brew install mariadb
+$ mysql.server start, mysql.server stop, mysql.server status
+$ mysql -uroot
+ * Access denied 발생 시
+   mysql> use mysql;
+   mysql> select user,host, plugin FROM mysql.user;
+   mysql> set password for 'root'@'localhost'=password('test1234');
+   mysql> flush privileges;
+
+사용할 수 있는 DB 보기
+ > show databases;
+DB 생성
+ > create database mydb;
+사용할 DB 지정
+ > use mydb;
+
+h2-console설정
+ - Driver Class : org.mariadb.jdbc.Driver
+ - JDBC URL : jdbc:mysql://localhost:3306/mydb
+ - User Name : root
+ - Passwrod : test1357
+
+
+kafka-connect 실행
+$ ./bin/connect-distributed ./etc/kafka/connect-distributed.properties
+
+
+
+
+
