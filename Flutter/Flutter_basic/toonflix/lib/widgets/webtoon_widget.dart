@@ -32,6 +32,7 @@ class Webtoon extends StatelessWidget {
       },
       child: Column(
         children: [
+          //Hero : 두 화면 사이에 애니메이션 효과를 주는 컴포넌트
           Hero(
             tag: id,
             //이미지 크기를 SizedBox또는 Container로 제한해 줌
