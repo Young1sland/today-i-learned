@@ -16,9 +16,9 @@ String d1 = String.valueOf(d);
 //long, float, short
 ```
 
+### 입력 받기
+Scanner는 속도가 느리므로 코테에서는 BufferedReader를 사용하자.
 ```java
-//입력 받기
-
 //Scanner
 Scanner sc = new Scanner(System.in);
 int N = sc.nextInt();
@@ -29,3 +29,73 @@ BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.
 StringTokenizer stringTokenizer = new StringTokenizer(bufferedReader.readLine());
 int suNo = Integer.parseInt(stringTokenizer.nextToken());
 ```
+
+### 출력
+StringBuffer
+```java
+StringBuffer sb = new StringBuffer();
+sb.append("wisdom");
+System.out.println(sb.toString());
+```
+StringBuilder
+- 싱글 스레드에서 StringBuffer보다 성능에 이점이 있다.
+```java
+StringBuilder sb = new StringBuilder();
+sb.append("wisdom");
+System.out.println(sb.toString());
+```
+BufferedWriter
+- flush() : 버퍼의 내용을 즉시 출력스트림으로 보냄
+- close() : 스트림 닫음. 내부적으로 flush()를 호출 후 닫음
+```java
+BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(System.out));
+bw.write("wisdom");
+bw.append("\nlove")'
+bw.flush();
+bw.close();
+```
+### Deque
+Double-Ended Queue로 양쪽에서 add,remove 가능
+```java
+ Deque<Integer> DQ = new LinkedList<>();
+ DQ.addLast(3);
+ DQ.addFirst(2);
+ System.out.println(DQ.getLast());
+ DQ.removeFirst();
+ DQ.removeLast();
+ if(DQ.isEmpty()) System.out.println("Deque is empty");
+```
+
+### Stack
+후입선출(LIFO)    
+- 용어    
+
+|||
+|--|--|
+|top|최상단 위치, 삽입 삭제 일어나는 위치|
+|push|top에 데이터 삽입|
+|pop|top의 데이터 삭제하고 확인|
+|peek|top의 데이터 확인|
+```java
+Stack<Integer> st = new Stack<>();
+st.push(1);
+if(st.empty()){
+    System.out.println(st.peek());
+    st.pop();         
+}
+```
+### 큐
+선입선출(FIFO)
+- 용어    
+  
+|||
+|--|--|
+|rear|가장 끝 위치|
+|front|가장 앞 위치|
+|add|rear에 데이터 삽입|
+|poll|front에 데이터 삭제하고 확인|
+|peek|front에 있는 데이터 확인|
+
+
+
+
