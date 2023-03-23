@@ -16,6 +16,13 @@ String d1 = String.valueOf(d);
 //long, float, short
 ```
 
+### 배열 초기화
+```java
+//같은 값으로 초기화
+int[] A = new int[5];
+Arrays.fill(A, 10);
+```
+
 ### 입력 받기
 Scanner는 속도가 느리므로 코테에서는 BufferedReader를 사용하자.
 ```java
@@ -54,6 +61,14 @@ bw.append("\nlove")'
 bw.flush();
 bw.close();
 ```
+
+### 자주 사용하는 함수
+```java
+//split
+String str = "1 2 3 4 5 6";
+String[] strArr = str.split(" ");
+```
+
 ### Deque
 Double-Ended Queue로 양쪽에서 add,remove 가능
 ```java
