@@ -110,7 +110,35 @@ if(st.empty()){
 |add|rear에 데이터 삽입|
 |poll|front에 데이터 삭제하고 확인|
 |peek|front에 있는 데이터 확인|
+```java
+Queue<Integer> Q = new LinkedList<>();
+if(Q.isEmpty()){
+    Q.add(1);
+}
+int front = Q.poll();
+Q.add(front);
+System.out.println(Q.peek());
+```
+
+### 우선순위 큐
+default로 작은값이 높은 우선순위를 가진다.
+```java
+ PriorityQueue<Integer> pQ1 = new PriorityQueue<>();
+ pQ1.add(1);
+ pQ1.add(2);
+ pQ1.peek(); //1
 
 
-
-
+/**
+  절대값이 크면 높은 우선순위. 절대값을 같을 경우 값이 더 크면 높은 우선순위 가지도록 함
+  o2-o1이 양수이면 큰수가 우선순위, o1-o2가 양수이면 작은수가 우선순위
+*/
+ PriorityQueue<Integer> pQ2 = new PriorityQueue<>((o1, o2) -> {
+    int res = Math.abs(o2) - Math.abs(o1);
+    return res==0 ? o2-o1: res;
+ });
+pQ2.add(3);       
+pQ2.add(4);
+pQ2.add(-4);
+//4
+```
