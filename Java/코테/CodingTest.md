@@ -67,6 +67,32 @@ bw.close();
 //split
 String str = "1 2 3 4 5 6";
 String[] strArr = str.split(" ");
+
+//Array 정렬
+Element[] A = new Element[N];
+for(int i=0;i<N;i++){
+  int temp = Integer.parseInt(bf.readLine());
+  A[i] = new Element(temp,i);
+}
+Arrays.sort(A);
+
+public static class Element implements Comparable<Number> {
+  int val;
+  int idx;
+
+  public Number(int val, int idx){
+    this.val = val;
+    this.idx = idx;
+  }
+  @Override
+  public int compareTo(Number o) {
+    //오름차순 정렬 : 현재 객체 값이 더 작으면 음수 리턴
+    //내림차순 정렬 : 현재 객체 값이 더 크면 음수 리턴
+    return this.val - o.val;
+  }
+       
+}
+
 ```
 
 ### Deque
@@ -131,7 +157,8 @@ default로 작은값이 높은 우선순위를 가진다.
 
 /**
   절대값이 크면 높은 우선순위. 절대값을 같을 경우 값이 더 크면 높은 우선순위 가지도록 함
-  o2-o1이 양수이면 큰수가 우선순위, o1-o2가 양수이면 작은수가 우선순위
+  현재 객체가 더 크면 음수 리턴(o2-o1이 음수 리턴) ->  큰수가 우선순위, 
+  현재 객체가 더 작으면 음수 리턴(o1-o2가 음수 리턴) -> 작은수가 우선순위
 */
  PriorityQueue<Integer> pQ2 = new PriorityQueue<>((o1, o2) -> {
     int res = Math.abs(o2) - Math.abs(o1);
