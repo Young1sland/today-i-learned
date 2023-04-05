@@ -16,6 +16,13 @@ String d1 = String.valueOf(d);
 //long, float, short
 ```
 
+### 배열 초기화
+```java
+//같은 값으로 초기화
+int[] A = new int[5];
+Arrays.fill(A, 10);
+```
+
 ### 입력 받기
 Scanner는 속도가 느리므로 코테에서는 BufferedReader를 사용하자.
 ```java
@@ -54,6 +61,40 @@ bw.append("\nlove")'
 bw.flush();
 bw.close();
 ```
+
+### 자주 사용하는 함수
+```java
+//split
+String str = "1 2 3 4 5 6";
+String[] strArr = str.split(" ");
+
+//Array 정렬
+Element[] A = new Element[N];
+for(int i=0;i<N;i++){
+  int temp = Integer.parseInt(bf.readLine());
+  A[i] = new Element(temp,i);
+}
+Arrays.sort(A);
+
+public static class Element implements Comparable<Number> {
+  int val;
+  int idx;
+
+  public Number(int val, int idx){
+    this.val = val;
+    this.idx = idx;
+  }
+  @Override
+  public int compareTo(Number o) {
+    //오름차순 정렬 : 현재 객체 값이 더 작으면 음수 리턴
+    //내림차순 정렬 : 현재 객체 값이 더 크면 음수 리턴
+    return this.val - o.val;
+  }
+       
+}
+
+```
+
 ### Deque
 Double-Ended Queue로 양쪽에서 add,remove 가능
 ```java
@@ -95,7 +136,36 @@ if(st.empty()){
 |add|rear에 데이터 삽입|
 |poll|front에 데이터 삭제하고 확인|
 |peek|front에 있는 데이터 확인|
+```java
+Queue<Integer> Q = new LinkedList<>();
+if(Q.isEmpty()){
+    Q.add(1);
+}
+int front = Q.poll();
+Q.add(front);
+System.out.println(Q.peek());
+```
+
+### 우선순위 큐
+default로 작은값이 높은 우선순위를 가진다.
+```java
+ PriorityQueue<Integer> pQ1 = new PriorityQueue<>();
+ pQ1.add(1);
+ pQ1.add(2);
+ pQ1.peek(); //1
 
 
-
-
+/**
+  절대값이 크면 높은 우선순위. 절대값을 같을 경우 값이 더 크면 높은 우선순위 가지도록 함
+  현재 객체가 더 크면 음수 리턴(o2-o1이 음수 리턴) ->  큰수가 우선순위, 
+  현재 객체가 더 작으면 음수 리턴(o1-o2가 음수 리턴) -> 작은수가 우선순위
+*/
+ PriorityQueue<Integer> pQ2 = new PriorityQueue<>((o1, o2) -> {
+    int res = Math.abs(o2) - Math.abs(o1);
+    return res==0 ? o2-o1: res;
+ });
+pQ2.add(3);       
+pQ2.add(4);
+pQ2.add(-4);
+//4
+```
