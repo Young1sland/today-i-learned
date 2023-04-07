@@ -45,3 +45,5 @@ LocalStorage.shared.snsToken identityToken = appleIDCredential.identityToken -> 
 
 
 https://developer111.tistory.com/58
+
+
