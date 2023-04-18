@@ -136,14 +136,18 @@ if(st.empty()){
 |add|rear에 데이터 삽입|
 |poll|front에 데이터 삭제하고 확인|
 |peek|front에 있는 데이터 확인|
+|offer|add와 같이 rear에 데이터 삽입, 성공에 대한 boolean 값 리턴함|
 ```java
 Queue<Integer> Q = new LinkedList<>();
 if(Q.isEmpty()){
-    Q.add(1);
+    Q.add(1); //추가 실패 시 IllegalStateException 발생
 }
 int front = Q.poll();
 Q.add(front);
 System.out.println(Q.peek());
+
+boolean result = queue.offer(4); //추가 실패 시 false 반환
+
 ```
 
 ### 우선순위 큐
@@ -154,6 +158,7 @@ default로 작은값이 높은 우선순위를 가진다.
  pQ1.add(2);
  pQ1.peek(); //1
 
+PriorityQueue<Integer> reversePQ = new PriorityQueue<>(Collections.reverseOrder()); //큰수가 우선순위
 
 /**
   절대값이 크면 높은 우선순위. 절대값을 같을 경우 값이 더 크면 높은 우선순위 가지도록 함
