@@ -27,6 +27,43 @@ console.log(crossNewWindow.location.href);
 crossNewWindow.location.href = "https://dreamhack.io";
 //location.href="주소" 주소로 이동함.
 ```
+### 실습
+```html
+<!-- iframe 객체 생성 -->
+<iframe src="" id="my-frame"></iframe>
+<!-- Javascript 시작 -->
+<script>
+/* 2번째 줄의 iframe 객체를 myFrame 변수에 가져옵니다. */
+let myFrame = document.getElementById('my-frame')
+/* iframe 객체에 주소가 로드되는 경우 아래와 같은 코드를 실행합니다. */
+myFrame.onload = () => {
+    /* try ... catch 는 에러를 처리하는 로직 입니다. */
+    try {
+        /* 로드가 완료되면, secret-element 객체의 내용을 콘솔에 출력합니다. */
+        let secretValue = myFrame.contentWindow.document.getElementById('secret-element').innerText;
+        console.log({ secretValue });
+    } catch(error) {
+        /* 오류 발생시 콘솔에 오류 로그를 출력합니다. */
+        console.log({ error });
+    }
+}
+/* iframe객체에 Same Origin, Cross Origin 주소를 로드하는 함수 입니다. */
+const loadSameOrigin = () => { myFrame.src = 'https://same-origin.com/frame.html'; }
+const loadCrossOrigin = () => { myFrame.src = 'https://cross-origin.com/frame.html'; }
+</script>
+<!--
+버튼 2개 생성 (Same Origin 버튼, Cross Origin 버튼)
+-->
+<button onclick=loadSameOrigin()>Same Origin</button><br>
+<button onclick=loadCrossOrigin()>Cross Origin</button>
+<!--
+frame.html의 코드가 아래와 같습니다.
+secret-element라는 id를 가진 div 객체 안에 treasure라고 하는 비밀 값을 넣어두었습니다.
+-->
+<div id="secret-element">treasure</div>
+```
+
+
 ## SOP 접근 허용하거나 완화 처리해야 하는 경우
 - SOP 영향 받지 않고 외부 출처에 대한 접근 허용하는 경우  
   이미지나 자바스크립트, CSS 등의 리소스 불러오는 태그

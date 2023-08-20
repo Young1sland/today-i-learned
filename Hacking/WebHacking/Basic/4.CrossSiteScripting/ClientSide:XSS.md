@@ -48,6 +48,17 @@ document.write("Hacked By DreamHack !");
 </script>
 ```
 
+#### 위치 이동 공격 코드
+```html
+<script>
+// 이용자의 위치를 변경.
+// 피싱 공격 등으로 사용됨.
+location.href = "http://hacker.dreamhack.io/phishing"; 
+// 새 창 열기
+window.open("http://hacker.dreamhack.io/")
+</script>
+```
+
 ### Stored XSS
 - 서버의 데이터베이스 또는 파일 등의 형태로 저장된 악성 스크립트를 조회할 때 발생하는 XSS
 - 대표적으로 게시물과 댓글에 악성 스크립트를 포함해 업로드하는 방식  
