@@ -53,14 +53,11 @@ export class CEntity {
   id: number;
 
   //JoinColumn으로만 정의하면 엔티티를 통해 해당 컬럼에 바로 접근할 수 없다. 이 경우 같은 컬럼을 따로 생성해주면 접근 가능하다.
-  //FK로 설정된 JoinColumn과 같은 컬럼을 생성 시 nullable,default 제약조건을 넣어줘야 함.
   @Column('int', {
     name: 'b_id',
-    unsigned: true,
-    nullable: true,
-    default: null,
+    unsigned: true
   })
-  bId: number | null;
+  bId: number;
 
   @ManyToOne(() => BEntity, (b) => b.CEntities, {
     onDelete: 'SET NULL', //B가 삭제되면 b_id 필드가 null로 설정 됨
