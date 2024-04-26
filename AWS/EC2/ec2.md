@@ -137,3 +137,32 @@
 |--|--|--|
 |디스크쓰루풋 최적화<br>하둡/맵리뷰스|디스크 속도 최적화<br>NoSQL/데이터 웨어 하우스|디스크 최적화<br>파일서버/데이터웨어하우스/하둡|
 
+## EC2 Instance Connect EndPoint
+-  public IP가 없는(Private Subnet에 위치한) EC2 인스턴스에 SSH 혹은 RDP에 접속할 수 있는 서비스
+- 연결 과정
+  - EC2 Instance Connect Endpoint를 특정 Subnet에 프로비전
+  - 해당 EndPoint를 활요앻 해당 서브넷과 연동된 VPC안의 모든 Subent에 접속
+  - EndPoint와 EC2 모두 적절한 보안그룹 설정 필요
+- 접속 권한 관리는 IAM으로 관리(ec2-instance-connect:OpenTunnel)
+  - maxTunnelDuration: 최대 허용할 터널의 지속시간(Default: 3600초)
+- 계정당 최대 5개, VPC당 한개, Subnet당 한개 = 고가용성 고민 필요
+- 무료!!
+![EIC_endpoint](./img/EC2_Instance_Connect_Endpoint.png)
+
+### preserveClientIP
+- preserveClientIP= true일 경우 연결시 EC2가 접속하는 Client의 IP주소로 시작된 연결로 인식
+  - 사용 조건
+    - EC2 인스턴스는 같은 VPC안에 존재해야 함.
+    - Transit Gateway 미지원.
+    - 특정 인스턴스 타입은 미지원(C1, CC1,CC2, CG1, CG2, CR1, G1, G2, HI1, M1, T1,..)
+### 로깅
+- CloudTrail을 활용해 터널을 만든 유저와 시간 등 감사 가능
+
+### EC2 Instance Connect Endpoint vs SSM Session Manager
+||EC2 Instance Connect Endpoint|SSM Session Manager|
+|--|--|--|
+|구현|EIC endpoint 생성|SSM 세션매너저를 위한 엔드포인트 생성(3개)|
+|로그|CloudTrail Only| CloudTrail/ConnectWatch|
+|보안제어|IAM/Security Group|IAM|
+|비용|무료|Endpoint 비용 발생(x3)|
+|기타|고가용성 고민 필요|고가용성 내제|
