@@ -166,3 +166,112 @@
 |보안제어|IAM/Security Group|IAM|
 |비용|무료|Endpoint 비용 발생(x3)|
 |기타|고가용성 고민 필요|고가용성 내제|
+
+### EC2 Instance Connect Endpoint 보안그룹 설정
+- 보안그룹 따로 지정하지 않으면 VPC default 보안그룹으로 설정 됨. 아웃바운드가 모든 대상으로 향함
+- 지정된 대상,즉 VPC 내부 또는 특정 Subnet CIDR로 아웃바운드 트래픽을 제한하는 것이 좋다. (Port 22)
+
+### EC2 인스턴스 보안 그룹 설정
+- 하기 설정 중 택일
+  - EC2 Instance Connect 엔드포인트 보안 그룹의 인바운트 트래픽 허용
+  - IP로 제한
+    - preserveClientIP=true로 clientIp가 보존되어 있다면 클라이언트 IP주소의 인바운드 트래픽 허용
+    - preserveClientIP=false로 clientIp가 보존되지 않는다면 VPC CIDR의 인바운드 트래필 허용
+
+### EC2 Instance Connect 엔드포인트 사용 위한 IAM 설정
+- 엔드포인트에 접근할 사용자의 IAM만 설정해 주면 된다.
+- 필요 권한
+  - ec2-instance-connect:OpenTunnel : EC2 Instance Connect 엔드포인트를 사용하여 인스턴스에 연결
+  - ec2-instance-connect:SendSSHPublicKey : 퍼블릭 키를 인스턴스에 푸시할 수 있는 권한. ec2:osuser의 osuser는 Push할 수 있는 OS 사용자 계정.
+- 조건 설정
+  - ec2-instance-connect:remotePort - TCP 연결 설정에 사용할 수 있는 인스턴스의 포트를 지정
+  - ec2-instance-connect:privateIpAddress - TCP 연결을 설정하려는 인스턴스와 연결된 대상 프라이빗 IP 주소를 지정
+  - ec2-instance-connect:maxTunnelDuration - 설정된 TCP 연결의 최대 지속 시간을 지정
+- 예시1
+  - 엔드포인트 ID eice-123456789abcdef만 허용.
+  - 인스턴스의 포트 22에 SSH 연결이 설정된 경우, 대상 인스턴스의 프라이빗 IP 주소가 10.0.1.0/31(10.0.1.0~10.0.1.1) 범위 내에 있고 maxTunnelDuration이 3600초 이하로 설정된 경우만 가능
+  - ec2:Describe* API 작업은 리소스 수준 권한을 지원하지 않으므로 Resource 요소에 *(와일드카드)가 필요
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [{
+            "Sid": "EC2InstanceConnect",
+            "Action": "ec2-instance-connect:OpenTunnel",
+            "Effect": "Allow",
+            "Resource": "arn:aws:ec2:region:account-id:instance-connect-endpoint/eice-123456789abcdef",
+            "Condition": {
+                "NumericEquals": {
+                    "ec2-instance-connect:remotePort": "22"
+                },
+                "IpAddress": {
+                    "ec2-instance-connect:privateIpAddress": "10.0.1.0/31"
+                },
+                "NumericLessThanEquals": {
+                    "ec2-instance-connect:maxTunnelDuration": "3600"
+                }
+            }
+        },
+        {
+            "Sid": "SSHPublicKey",
+            "Effect": "Allow",
+            "Action": "ec2-instance-connect:SendSSHPublicKey",
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "ec2:osuser": "ami-username"
+                }
+            }
+        },
+        {
+            "Sid": "Describe",
+            "Action": [
+                "ec2:DescribeInstances",
+                "ec2:DescribeInstanceConnectEndpoints"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        }
+    ]
+}
+```
+- 예시2
+  - 사용자가 지정된 소스 IP 주소 범위에서만 연결하도록 허용.
+  - IAM 보안 주체가 192.0.2.0/24(이 정책의 IP 주소 범위 예제) 내에 없는 IP 주소에서 OpenTunnel을 호출하면 응답은 Access Denied
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [{
+            "Effect": "Allow",
+            "Action": "ec2-instance-connect:OpenTunnel",
+            "Resource": "arn:aws:ec2:region:account-id:instance-connect-endpoint/eice-123456789abcdef",
+            "Condition": {
+                "IpAddress": {
+                    "aws:SourceIp": "192.0.2.0/24"
+                },
+                "NumericEquals": {
+                    "ec2-instance-connect:remotePort": "22"
+                }
+            }
+        },
+        {
+            "Sid": "SSHPublicKey",
+            "Effect": "Allow",
+            "Action": "ec2-instance-connect:SendSSHPublicKey",
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "ec2:osuser": "ami-username"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeInstances",
+                "ec2:DescribeInstanceConnectEndpoints"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
