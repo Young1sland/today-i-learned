@@ -29,15 +29,18 @@ const API = fetchAPI(); //X, final 또는 var 사용하자
 ```
 
 ### null safety
-개발자가 null값을 참조할 수 없게 하는 것
+- 개발자가 null값을 참조할 수 없게 하는 것
+- dartpad에서 `String?`과 같이 null safety 구문을 사용할 경우 에러가 나는 경우가 있다. 설정을 변경하거나 버전을 명시하자. //@dart=2.12
 ```dart
+// @dart=2.12
+
 String? name = 'haha'; //nullable한 경우 타입에 ? 붙임
 name = null;
 //print(name.length); 
 if (name != null) { //nullable한 경우 변수가 null인지 확인 필요
     print(name.length);
 }
-name?.isNotEmpty; //null이 아니면 다음 연산 수행
+print(name?.isNotEmpty); //null이 아니면 다음 연산 수행, null 출력 됨.
 ```
 
 
