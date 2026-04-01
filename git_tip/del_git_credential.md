@@ -1,4 +1,5 @@
-### Mac git credential 삭제
+# Mac git credential 삭제
+
 ```sh
 $ git credential-osxkeychain erase
    protocol=https
@@ -6,7 +7,4 @@ $ git credential-osxkeychain erase
 
 
 $ git remote set-url origin https://{git account}:{token}@github.com/{account}/{address}.git
-$ git credential reject
-   protocol=https
-   host=github.com
 ```
